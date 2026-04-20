@@ -545,6 +545,9 @@ async function processAll(){
 
   setP(12,'Reading JSON data…'); await sleep(40);
 
+  // Debug: count what JSON files we found
+  console.log('Found JSON files:', jsonFiles.map(j=>j.name));
+
   // Parse all JSONs
   const metaMap={};
   for(const {f,name,isChat} of jsonFiles){
@@ -565,10 +568,18 @@ async function processAll(){
         const arr=Array.isArray(json)?json:(json['Saved Media']||json['memories']||json);
         if(Array.isArray(arr)){for(const m of arr){const d=m['Date']||m['date']||'';if(d){metaMap[normKey(d)]=m;metaMap[d]=m;}}}
       } else if(name==='snap_history.json'){
-        const arr=Array.isArray(json)?json:(json['Received Snap History']?[...(json['Received Snap History']||[]),...(json['Sent Snap History']||[])]:json);
-        if(Array.isArray(arr)) S.snaps=arr;
-        else if(json['Received Snap History']||json['Sent Snap History']){
-          S.snaps=[...(json['Received Snap History']||[]).map(s=>({...s,_dir:'recv'})), ...(json['Sent Snap History']||[]).map(s=>({...s,_dir:'sent'}))];
+        // snap_history.json can be {username: [...], ...} or array
+        if(!Array.isArray(json)){
+          // Object with usernames as keys - flatten all
+          let allSnaps=[];
+          for(const key of Object.keys(json)){
+            if(Array.isArray(json[key])){
+              allSnaps.push(...json[key].map(s=>({...s,_user:key})));
+            }
+          }
+          S.snaps=allSnaps;
+        }else{
+          S.snaps=json;
         }
       } else if(name==='friends.json'){
         const arr=Array.isArray(json)?json:(json['Friends']||json['friends']||[]);
@@ -576,17 +587,39 @@ async function processAll(){
       } else if(name==='user_profile.json'){
         S.profile=json['User Information']||json;
       } else if(name==='account.json'||name==='account_history.json'){
-        if(!S.profile || Object.keys(S.profile).length===0) S.profile=json['Account Information']||json['Basic Information']||json;
+        // account_history.json has profile data and login history
+        if(!S.profile || Object.keys(S.profile).length===0){
+          S.profile=json['Account Information']||json['Basic Information']||json;
+        }
+        // Login history might be in login_history key
+        if(json['Login History']&&Array.isArray(json['Login History'])){
+          S.loginHistory=json['Login History'];
+        }
+        // Also check for device/location history
+        if(json['Device']&&Array.isArray(json['Device'])){
+          S.loginHistory=json['Device'];
+        }
       } else if(name==='login_history.json'){
         const arr=Array.isArray(json)?json:(json['Login History']||json['Account Activity']||json);
         if(Array.isArray(arr)) S.loginHistory=arr;
       } else if(name==='search_history.json'){
-        const arr=Array.isArray(json)?json:(json['Search History']||json);
-        if(Array.isArray(arr)) S.searchHistory=arr;
-        else if(json['Search History']) S.searchHistory=json['Search History'];
+        // Can be {"": [...]} with search terms under empty key, or array
+        if(Array.isArray(json)){
+          S.searchHistory=json;
+        }else if(json['']&&Array.isArray(json[''])){
+          S.searchHistory=json[''];
+        }else{
+          // Try any key that has array
+          for(const k of Object.keys(json)){
+            if(Array.isArray(json[k])){S.searchHistory=json[k];break;}
+          }
+        }
+        console.log('Search history loaded:', S.searchHistory.length, 'items');
       }
-    }catch(e){}
+    }catch(e){console.log('Error parsing', name, e.message);}
   }
+  
+  console.log('Loaded:', {snaps:S.snaps.length, friends:S.friends.length, search:S.searchHistory.length, login:S.loginHistory.length, profile:Object.keys(S.profile).length});
 
   setP(25,'Parsing chat history…'); await sleep(40);
 
@@ -1102,52 +1135,68 @@ function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(
 //  FRIENDS
 // ═══════════════════════════════════════════
 function renderFriends(){
-  $('friends-count').textContent=S.friends.length;
-  $('friends-grid').innerHTML=S.friends.map(f=>{
-    const name=f['Username']||f['username']||f['Display Name']||f['name']||JSON.stringify(f).slice(0,30);
+  const count=S.friends.length;
+  $('friends-count').textContent=count.toLocaleString();
+  if(count===0){
+    $('friends-grid').innerHTML='<div style="color:var(--tm);text-align:center;padding:20px">No friends found in your data.</div>';
+    return;
+  }
+  $('friends-grid').innerHTML=S.friends.slice(0,200).map(f=>{
+    const name=f['Username']||f['username']||f['Display Name']||f['name']||String(JSON.stringify(f)).slice(0,30);
     const since=f['Friend Since']||f['Added Date']||f['since']||'';
-    return `<div class="friend-card"><div class="friend-avatar">${initials(name)}</div><div><div class="friend-name">${escHtml(name)}</div>${since?`<div class="friend-since">${since}</div>`:''}</div></div>`;
+    return `<div class="friend-card"><div class="friend-avatar">${initials(String(name))}</div><div><div class="friend-name">${escHtml(String(name))}</div>${since?`<div class="friend-since">${String(since)}</div>`:''}</div></div>`;
   }).join('');
-  $('friends-search').addEventListener('input',e=>{
-    const q=e.target.value.toLowerCase();
-    $('friends-grid').querySelectorAll('.friend-card').forEach(c=>{
-      c.style.display=c.textContent.toLowerCase().includes(q)?'':'none';
-    });
-  });
+  if(count>200){
+    $('friends-grid').innerHTML+='<div style="grid-column:1/-1;text-align:center;color:var(--tm);font-size:.75rem;padding:10px">Showing 200 of '+count.toLocaleString()+' friends</div>';
+  }
 }
 
 // ═══════════════════════════════════════════
 //  SNAPS
 // ═══════════════════════════════════════════
 function renderSnaps(){
-  $('snaps-count').textContent=S.snaps.length.toLocaleString();
+  const count=S.snaps.length;
+  $('snaps-count').textContent=count.toLocaleString();
   const tbody=$('snaps-body');
-  function rowsHTML(snaps){
-    return snaps.map(s=>{
-      const dir=s['_dir']||s['Direction']||(s['Sender']?'recv':'sent');
-      const to=s['Recipient']||s['Sender']||s['Username']||'—';
-      const mt=s['Media Type']||s['Type']||'—';
-      const ts=s['Created']||s['Timestamp']||s['Date']||'—';
-      return `<tr><td><span class="type-tag ${dir}">${dir==='sent'?'▲ Sent':'▼ Recv'}</span></td><td>${escHtml(to)}</td><td>${escHtml(mt)}</td><td style="font-family:'DM Mono',monospace;font-size:.75rem">${ts}</td></tr>`;
-    }).join('');
+  if(count===0){
+    tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--tm);padding:20px">No snap history found in your data.</td></tr>';
+    return;
   }
-  tbody.innerHTML=rowsHTML(S.snaps);
-  $('snaps-search').addEventListener('input',e=>{
-    const q=e.target.value.toLowerCase();
-    tbody.querySelectorAll('tr').forEach(r=>{r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});
-  });
+  const rows=S.snaps.slice(0,500).map(s=>{
+    // Handle different formats
+    const isSender=s['IsSender']===true || s['IsSender']===true;
+    const sender=s['From']||s['From']||s['Sender']||s['_user']||'';
+    const mt=s['Media Type']||s['type']||'—';
+    const ts=s['Created']||s['Timestamp']||s['Date']||'—';
+    const dir=isSender?'sent':'recv';
+    return `<tr><td><span class="type-tag ${dir}">${dir==='sent'?'▲':'▼'}</span></td><td>${escHtml(String(sender))}</td><td>${escHtml(String(mt))}</td><td style="font-family:'DM Mono',monospace;font-size:.75rem">${escHtml(String(ts))}</td></tr>`;
+  }).join('');
+  tbody.innerHTML=rows;
+  if(count>500){
+    tbody.innerHTML+='<tr><td colspan="4" style="text-align:center;color:var(--tm);font-size:.75rem;padding:10px">Showing 500 of '+count.toLocaleString()+' snaps</td></tr>';
+  }
 }
 
 // ═══════════════════════════════════════════
 //  SEARCH HISTORY
 // ═══════════════════════════════════════════
 function renderSearch(){
-  $('search-count').textContent=S.searchHistory.length.toLocaleString();
-  $('search-list').innerHTML=S.searchHistory.map(s=>{
-    const term=s['Search Term']||s['term']||s['Query']||JSON.stringify(s);
-    const ts=s['Timestamp']||s['Date']||'';
-    return `<div class="kv-row"><div class="kv-val">${escHtml(term)}</div>${ts?`<div class="kv-key" style="min-width:120px;text-align:right">${ts}</div>`:''}</div>`;
+  const count=S.searchHistory.length;
+  $('search-count').textContent=count.toLocaleString();
+  if(count===0){
+    $('search-list').innerHTML='<div style="color:var(--tm);text-align:center;padding:20px">No search history found.</div>';
+    return;
+  }
+  const rows=S.searchHistory.slice(0,100).map(s=>{
+    // Fields: "Search Term", "Date and time (hourly)", "Location"
+    const term=s['Search Term']||s['term']||s['Query']||'';
+    const ts=s['Date and time (hourly)']||s['Timestamp']||s['Date']||'';
+    return `<div class="kv-row"><div class="kv-val">${escHtml(String(term))}</div>${ts?`<div class="kv-key" style="min-width:120px;text-align:right">${String(ts)}</div>`:''}</div>`;
   }).join('');
+  $('search-list').innerHTML=rows;
+  if(count>100){
+    $('search-list').innerHTML+='<div style="text-align:center;color:var(--tm);font-size:.75rem;padding:10px">Showing 100 of '+count.toLocaleString()+'</div>';
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -1156,24 +1205,86 @@ function renderSearch(){
 function renderProfile(){
   const p=S.profile;
   if(!p||!Object.keys(p).length){$('profile-content').innerHTML='<div style="color:var(--td);font-size:.85rem">No profile data found.</div>';return;}
-  $('profile-content').innerHTML=Object.entries(p).map(([k,v])=>{
-    const val=typeof v==='object'?JSON.stringify(v):String(v);
-    return `<div class="kv-row"><div class="kv-key">${escHtml(k)}</div><div class="kv-val">${escHtml(val)}</div></div>`;
-  }).join('');
+  
+  // Check if it's account_history style with grouped changes
+  const hasGroups=Object.keys(p).some(k=>Array.isArray(p[k]));
+  
+  if(hasGroups){
+    let html='';
+    // Check for basic account info first
+    if(p['Username']||p['username']){
+      html+=`<div class="info-card" style="margin-bottom:16px;background:var(--bgc);border:1px solid var(--br);border-radius:var(--r-lg);padding:16px">
+        <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px">👤 Account</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:.85rem">
+          ${p['Username']?'<div><span style="color:var(--tm)">Username</span><div>'+escHtml(String(p['Username']))+'</div>':''}
+          ${p['Display Name']?'<div><span style="color:var(--tm)">Display Name</span><div>'+escHtml(String(p['Display Name']))+'</div>':''}
+          ${p['Email']?'<div><span style="color:var(--tm)">Email</span><div>'+escHtml(String(p['Email']))+'</div>':''}
+          ${p['Mobile Number']?'<div><span style="color:var(--tm)">Phone</span><div>'+escHtml(String(p['Mobile Number']))+'</div>':''}
+        </div>
+      </div>`;
+    }
+    
+    // Display name changes
+    if(p['Display Name Change']&&Array.isArray(p['Display Name Change'])){
+      const changes=p['Display Name Change'].slice(0,5).map(c=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--br)"><span>${escHtml(String(c['Display Name']||''))}</span><span style="color:var(--tm);font-family:'DM Mono',monospace;font-size:.75rem">${c['Date']?c['Date'].split(' ')[0]:''}</span></div>`).join('');
+      html+=`<div class="info-card"><h3>📛 Display Name History</h3>${changes}</div>`;
+    }
+    
+    // Mobile changes
+    if(p['Mobile Number Change']&&Array.isArray(p['Mobile Number Change'])){
+      const changes=p['Mobile Number Change'].slice(0,5).map(c=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--br)"><span>${escHtml(String(c['Mobile Number']||''))}</span><span style="color:var(--tm);font-family:'DM Mono',monospace;font-size:.75rem">${c['Date']?c['Date'].split(' ')[0]:''}</span></div>`).join('');
+      html+=`<div class="info-card"><h3>📱 Phone Number History</h3>${changes}</div>`;
+    }
+    
+    // Password changes
+    if(p['Password Change']&&Array.isArray(p['Password Change'])){
+      const changes=p['Password Change'].slice(0,5).map(c=>`<div style="padding:4px 0;border-bottom:1px solid var(--br)"><span style="color:var(--tm);font-family:'DM Mono',monospace;font-size:.75rem">${c['Date']||''}</span></div>`).join('');
+      html+=`<div class="info-card"><h3>🔐 Password Changes</h3>${changes}</div>`;
+    }
+    
+    // Snap settings - just show basic info
+    const email=p['Snapchat Email']||p.SnapchatEmail||'';
+    const phone=p['Snapchat Phone']||p.SnapchatPhone||'';
+    if(email||phone){
+      html+=`<div class="info-card"><h3>⚙️ Connected</h3>
+        ${email?'<div class="kv-row"><div class="kv-key">Email</div><div class="kv-val">'+escHtml(String(email))+'</div></div>':''}
+        ${phone?'<div class="kv-row"><div class="kv-key">Phone</div><div class="kv-val">'+escHtml(String(phone))+'</div></div>':''}
+      </div>`;
+    }
+    
+    $('profile-content').innerHTML=html;
+  }else{
+    // Fallback to old style
+    $('profile-content').innerHTML=Object.entries(p).map(([k,v])=>{
+      const val=typeof v==='object'?JSON.stringify(v):String(v);
+      return `<div class="kv-row"><div class="kv-key">${escHtml(k)}</div><div class="kv-val">${escHtml(val)}</div></div>`;
+    }).join('');
+  }
 }
 
 // ═══════════════════════════════════════════
 //  LOGIN HISTORY
 // ═══════════════════════════════════════════
 function renderLogin(){
-  $('login-count').textContent=S.loginHistory.length.toLocaleString();
-  $('login-body').innerHTML=S.loginHistory.map(l=>{
-    const date=l['Created At']||l['Date']||l['Timestamp']||'—';
-    const ip=l['IP']||l['IP Address']||'—';
+  const count=S.loginHistory.length;
+  $('login-count').textContent=count.toLocaleString();
+  const tbody=$('login-body');
+  if(count===0){
+    tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--tm);padding:20px">No login history found.</td></tr>';
+    return;
+  }
+  const rows=S.loginHistory.slice(0,500).map(l=>{
+    // Support various field names
+    const date=l['Date']||l['Created At']||l['Timestamp']||'—';
+    const ip=l['IP']||l['IP Address']||l['Device IP']||'—';
     const country=l['Country']||l['Location']||'—';
-    const device=l['Device Type']||l['Device']||l['User Agent']||'—';
-    return `<tr><td style="font-family:'DM Mono',monospace;font-size:.75rem">${date}</td><td style="font-family:'DM Mono',monospace;font-size:.75rem">${ip}</td><td>${country}</td><td style="font-size:.75rem;color:var(--tm)">${device.slice(0,60)}</td></tr>`;
+    const device=l['Device Type']||l['Device']||l['Device Model']||l['User Agent']||'';
+    return `<tr><td style="font-family:'DM Mono',monospace;font-size:.75rem">${escHtml(String(date))}</td><td style="font-family:'DM Mono',monospace;font-size:.75rem">${String(ip)}</td><td>${String(country)}</td><td style="font-size:.75rem;color:var(--tm)">${String(device).slice(0,60)}</td></tr>`;
   }).join('');
+  tbody.innerHTML=rows;
+  if(count>500){
+    tbody.innerHTML+='<tr><td colspan="4" style="text-align:center;color:var(--tm);font-size:.75rem;padding:10px">Showing 500 of '+count.toLocaleString()+'</td></tr>';
+  }
 }
 
 // ═══════════════════════════════════════════
