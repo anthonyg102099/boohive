@@ -34,14 +34,7 @@ Tap Next → select **All Time** for everything
 
 ### Step 4: Export & Wait
 Tap Export Request → wait for Snapchat to prepare your data (can take minutes to hours) → download the .zip file
-
-## How to Use
-
-### Option A: Double-Click (Simplest)
-1. Extract the zip file
-2. Double-click `SnapArchive.html`
-3. Select your Snapchat data folder
-4. Browse!
+Extract all .zip files into a single parent folder (call it whatever you'd like)
 
 ## Controls
 
@@ -72,17 +65,5 @@ Tap Export Request → wait for Snapchat to prepare your data (can take minutes 
 
 - **Your data stays on your device** — nothing is uploaded anywhere
 - **No tracking or analytics**
-- **Works completely offline** once loaded
-
-## Files Included
-
-```
-SnapArchive/
-├── SnapArchive.html     # The app (single file!)
-├── Open Snap Archive Viewer.bat   # Quick launcher for Windows
-└── Run.bat          # Python server launcher
-```
-
----
 
 Built with ❤️ for preserving memories, Greed-free.
