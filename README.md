@@ -29,14 +29,20 @@ Choose the data you want to view:
 - Account / Account History
 - Friends
 
+![Downloadable Data](https://github.com/anthonyg102099/boohive/blob/main/2.png)
+
 > **Tip:** Select all for the full experience!
 
 ### Step 3: Choose Date Range
 Tap Next → select **All Time** for everything
 
+![Selectable data to export](https://github.com/anthonyg102099/boohive/blob/main/3.png)
+
 ### Step 4: Export & Wait
 Tap Export Request → wait for Snapchat to prepare your data (can take minutes to hours) → download the .zip file
 Extract all .zip files into a single parent folder (call it whatever you'd like)
+
+![Date Range and Export Progress Information](https://github.com/anthonyg102099/boohive/blob/main/4.png)
 
 ## Controls
 
