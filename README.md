@@ -2,6 +2,8 @@
 
 Browse your Snapchat memories, chats, and history — completely offline, in your browser.
 
+**[👉 Click here to open the app](https://anthonyg102099.github.io/boohive/)**
+
 ## What It Does
 
 - **Memories** — View all your saved photos and videos, with overlay toggle for text/drawings
