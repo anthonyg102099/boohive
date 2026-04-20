@@ -18,7 +18,7 @@ Before using the app, download your Snapchat data:
 ### Step 1: Go to Settings > My Data
 Open Snapchat → tap your profile icon → ⚙️ Settings → scroll to **My Data**
 
-![Snapchat settings]([https://github.com/anthonyg102099/boohive/blob/main/1.png])
+![Snapchat settings](https://github.com/anthonyg102099/boohive/blob/main/1.png)
 
 ### Step 2: Select What to Download
 Choose the data you want to view:
