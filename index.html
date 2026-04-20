@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snap Archive Viewer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+:root{
+  --y:#FFFC00;--yd:rgba(255,252,0,.14);--yg:rgba(255,252,0,.4);
+  --bg:#0a0a0b;--bgc:#141416;--bge:#1c1c1f;--bgg:rgba(255,255,255,.04);
+  --tp:#f0f0f2;--tm:#6b6b7a;--td:#3a3a45;--br:rgba(255,255,255,.07);
+  --red:#ff4757;--teal:#4ecdc4;--blue:#5b8dee;
+  --r-sm:8px;--r-md:14px;--r-lg:20px;--r-xl:28px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--tp);font-family:'Outfit',sans-serif;overflow:hidden}
+
+/* ── LANDING ──────────────────────────── */
+#landing{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:100;transition:opacity .6s,transform .6s}
+#landing.out{opacity:0;transform:scale(.96);pointer-events:none}
+.logo-wrap{width:80px;height:80px;background:var(--y);border-radius:24px;display:flex;align-items:center;justify-content:center;margin-bottom:28px;box-shadow:0 0 70px var(--yg);animation:lp 3s ease-in-out infinite}
+@keyframes lp{0%,100%{box-shadow:0 0 70px var(--yg)}50%{box-shadow:0 0 110px rgba(255,252,0,.7)}}
+.logo-wrap svg{width:46px;height:46px}
+.lt{font-size:2.8rem;font-weight:700;letter-spacing:-.03em;background:linear-gradient(135deg,#fff 40%,var(--y));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
+.ls{font-size:.95rem;color:var(--tm);margin-bottom:44px;text-align:center;line-height:1.6;max-width:420px}
+.drop{width:500px;max-width:92vw;border:2px dashed rgba(255,252,0,.3);border-radius:var(--r-xl);padding:52px 40px;text-align:center;cursor:pointer;transition:all .25s;background:var(--yd);position:relative}
+.drop:hover,.drop.over{border-color:var(--y);background:rgba(255,252,0,.1);transform:scale(1.01);box-shadow:0 0 50px var(--yg)}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-icon{font-size:3rem;margin-bottom:16px;display:block}
+.dl{font-size:1.1rem;font-weight:600;color:var(--y);margin-bottom:8px}
+.dh{font-size:.85rem;color:var(--tm);line-height:1.5}
+#flist{margin-top:18px;width:500px;max-width:92vw;display:flex;flex-direction:column;gap:7px}
+.fi{background:var(--bgc);border:1px solid var(--br);border-radius:var(--r-md);padding:11px 16px;display:flex;align-items:center;gap:12px;font-size:.88rem}
+.fi .fn{flex:1;font-weight:500}.fi .fc{color:var(--tm);font-size:.78rem;font-family:'DM Mono',monospace}
+.btn-add{background:transparent;border:1px dashed rgba(255,252,0,.3);border-radius:var(--r-md);padding:10px 20px;color:var(--y);font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;position:relative;transition:all .2s;width:500px;max-width:92vw;margin-top:8px}
+.btn-add:hover{background:var(--yd);border-color:var(--y)}
+.btn-add input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.btn-go{margin-top:28px;background:var(--y);color:#000;border:none;border-radius:50px;padding:16px 52px;font-size:1rem;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer;transition:all .2s;box-shadow:0 4px 28px rgba(255,252,0,.35)}
+.btn-go:hover{transform:translateY(-2px);box-shadow:0 8px 36px rgba(255,252,0,.5)}
+.btn-go:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* ── PROGRESS ─────────────────────────── */
+#prog{display:none;position:fixed;inset:0;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;z-index:99;gap:6px}
+#prog.show{display:flex}
+.pt{font-size:1.3rem;font-weight:600;margin-bottom:4px}
+.ps{font-size:.88rem;color:var(--tm);margin-bottom:28px;font-family:'DM Mono',monospace;min-height:1.3em}
+.pb-wrap{width:340px;height:5px;background:var(--bge);border-radius:99px;overflow:hidden}
+.pb-fill{height:100%;background:var(--y);border-radius:99px;width:0%;transition:width .3s;box-shadow:0 0 14px var(--yg)}
+
+/* ── APP SHELL ────────────────────────── */
+#app{display:none;position:fixed;inset:0;flex-direction:row}
+#app.show{display:flex}
+
+/* Sidebar */
+.sidebar{width:220px;flex-shrink:0;height:100%;background:var(--bgc);border-right:1px solid var(--br);display:flex;flex-direction:column;overflow:hidden}
+.sb-logo{padding:20px 18px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--br)}
+.sb-dot{width:9px;height:9px;background:var(--y);border-radius:50%;box-shadow:0 0 8px var(--yg);flex-shrink:0}
+.sb-title{font-size:1rem;font-weight:700;letter-spacing:-.01em}
+.sb-stats{padding:10px 14px;display:flex;flex-direction:column;gap:4px;border-bottom:1px solid var(--br)}
+.sb-stat{font-size:.72rem;color:var(--tm);font-family:'DM Mono',monospace;display:flex;gap:6px;align-items:center}
+.sb-stat .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+nav{flex:1;overflow-y:auto;padding:8px 0;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+.nav-section{font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--td);padding:10px 18px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 18px;cursor:pointer;color:var(--tm);font-size:.88rem;font-weight:500;border-left:2px solid transparent;transition:all .15s;user-select:none}
+.nav-item:hover{background:var(--bgg);color:var(--tp)}
+.nav-item.active{background:var(--yd);color:var(--y);border-left-color:var(--y)}
+.nav-item .ni{font-size:1rem;flex-shrink:0;width:20px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--bge);border-radius:50px;padding:1px 8px;font-size:.68rem;font-family:'DM Mono',monospace;color:var(--td)}
+.nav-item.active .nav-badge{background:rgba(255,252,0,.2);color:var(--y)}
+
+/* Main content */
+.main{flex:1;height:100%;overflow:hidden;display:flex;flex-direction:column}
+.page{display:none;flex:1;overflow:hidden;flex-direction:column}
+.page.active{display:flex}
+
+/* ── PAGE HEADER ─────────────────────── */
+.page-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:rgba(10,10,11,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--br);flex-shrink:0}
+.page-hdr-left{display:flex;align-items:center;gap:12px}
+.page-hdr h2{font-size:1.1rem;font-weight:600}
+.page-hdr .count{font-size:.75rem;color:var(--tm);font-family:'DM Mono',monospace;background:var(--bge);border:1px solid var(--br);border-radius:50px;padding:2px 10px}
+.hdr-actions{display:flex;gap:8px;align-items:center}
+.srch-wrap{position:relative;display:flex;align-items:center}
+.srch-wrap svg{position:absolute;left:10px;opacity:.4;pointer-events:none}
+.srch-inp{background:var(--bge);border:1px solid var(--br);border-radius:50px;padding:7px 14px 7px 32px;color:var(--tp);font-family:'Outfit',sans-serif;font-size:.83rem;outline:none;width:190px;transition:all .2s}
+.srch-inp::placeholder{color:var(--tm)}
+.srch-inp:focus{border-color:rgba(255,252,0,.4);width:230px}
+
+/* ── FILTER BAR ──────────────────────── */
+.filter-bar{display:flex;gap:7px;padding:10px 20px;overflow-x:auto;flex-shrink:0;border-bottom:1px solid var(--br);scrollbar-width:none}
+.filter-bar::-webkit-scrollbar{display:none}
+.pill{background:var(--bge);border:1px solid var(--br);border-radius:50px;padding:5px 14px;font-size:.8rem;font-weight:500;color:var(--tm);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0}
+.pill:hover{border-color:rgba(255,252,0,.3);color:var(--tp)}
+.pill.active{background:var(--yd);border-color:var(--y);color:var(--y);font-weight:600}
+
+/* ── MEMORIES PAGE ───────────────────── */
+#p-memories .scroll-area{flex:1;overflow-y:auto;padding:20px;scrollbar-width:thin;scrollbar-color:var(--td) transparent;cursor:grab}
+#p-memories .scroll-area:active{cursor:grabbing}
+#p-memories .scroll-area::-webkit-scrollbar{width:3px}
+#p-memories .scroll-area::-webkit-scrollbar-thumb{background:var(--td);border-radius:4px}
+.month-grp{margin-bottom:32px}
+.month-lbl{font-size:.72rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--tm);margin-bottom:12px;padding-bottom:9px;border-bottom:1px solid var(--br);display:flex;align-items:center;gap:8px}
+.month-cnt{background:var(--bge);border-radius:50px;padding:2px 8px;font-size:.68rem;color:var(--td);font-family:'DM Mono',monospace}
+.mem-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:3px}
+.card{position:relative;aspect-ratio:9/16;border-radius:7px;overflow:hidden;cursor:pointer;background:var(--bge);transition:transform .16s,box-shadow .16s}
+.card:hover{transform:scale(1.04);z-index:2;box-shadow:0 6px 28px rgba(0,0,0,.6)}
+.card img.bi,.card video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.card img.oi{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;transition:opacity .2s}
+.card img.oi.off{opacity:0}
+.tbadge{position:absolute;top:7px;left:7px;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);border-radius:5px;padding:2px 6px;font-size:.62rem;font-weight:600;color:#fff;text-transform:uppercase}
+.tbadge.v{background:rgba(255,71,87,.8)}
+.obadge{position:absolute;top:7px;right:7px;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);border-radius:5px;padding:3px 5px;font-size:.68rem;cursor:pointer;transition:background .15s;z-index:2}
+.obadge:hover{background:rgba(255,252,0,.3)}
+.dbadge{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.75));padding:18px 7px 6px;font-size:.62rem;color:rgba(255,255,255,.7);font-family:'DM Mono',monospace}
+.play-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.ydiv{text-align:center;padding:10px 0 22px;font-size:2.2rem;font-weight:700;color:var(--td);letter-spacing:-.04em;opacity:.35}
+
+/* Chat media attachments */
+.chat-media-attachments{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.chat-media-item{width:60px;height:80px;position:relative;border-radius:6px;overflow:hidden;background:var(--bge);cursor:pointer}
+.chat-media-item img,.chat-media-item video{width:100%;height:100%;object-fit:cover}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:50vh;gap:10px;color:var(--tm);text-align:center}
+.empty-icon{font-size:3rem;opacity:.3}
+
+/* ── LIGHTBOX ────────────────────────── */
+#lb{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.95);align-items:center;justify-content:center;backdrop-filter:blur(24px)}
+#lb.open{display:flex}
+.lbi{position:relative;display:flex;align-items:center;width:100%;height:100%}
+.lbnav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:50%;cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center;color:#fff;transition:all .15s;backdrop-filter:blur(10px)}
+.lbnav:hover{background:rgba(255,252,0,.2);border-color:var(--y)}
+#lbprev{left:16px}#lbnext{right:296px}
+.lbmw{flex:1;height:100%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.lbmw img.lbb,.lbmw video{max-width:100%;max-height:100%;object-fit:contain;border-radius:var(--r-md)}
+.lbmw img.lbo{position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain;pointer-events:none;transition:opacity .2s}
+.lbmw img.lbo.off{opacity:0}
+.lbip{width:280px;flex-shrink:0;height:100%;background:var(--bgc);border-left:1px solid var(--br);padding:70px 20px 20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.lbc{position:absolute;top:16px;right:16px;z-index:10;width:38px;height:38px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;transition:all .15s}
+.lbc:hover{background:rgba(255,71,87,.3)}
+.lbd{font-size:1rem;font-weight:600;color:var(--tp)}
+.lbt{font-size:.78rem;color:var(--tm);font-family:'DM Mono',monospace}
+.lbtt{display:inline-flex;align-items:center;gap:6px;background:var(--bge);border-radius:50px;padding:3px 12px;font-size:.75rem;color:var(--tm);font-weight:500;width:fit-content}
+.lbloc{background:var(--bge);border:1px solid var(--br);border-radius:var(--r-md);padding:12px}
+.lblocl{font-size:.68rem;color:var(--tm);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+.lblocc{font-size:.78rem;font-family:'DM Mono',monospace;color:var(--teal)}
+.lbot{background:var(--bge);border:1px solid var(--br);border-radius:var(--r-md);padding:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:space-between}
+.lbot:hover{border-color:rgba(255,252,0,.4)}
+.lbot.on{border-color:var(--y);background:var(--yd)}
+.otl{font-size:.85rem;font-weight:500}.ots{font-size:.72rem;color:var(--tm);margin-top:2px}
+.tsw{width:34px;height:18px;border-radius:9px;background:var(--bg);position:relative;transition:background .2s;flex-shrink:0;border:1px solid var(--br)}
+.tsw.on{background:var(--y);border-color:var(--y)}
+.tsw::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.tsw.on::after{transform:translateX(15px);background:#000}
+#lbctr{position:absolute;top:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);backdrop-filter:blur(10px);border:1px solid var(--br);border-radius:50px;padding:5px 14px;font-size:.76rem;font-family:'DM Mono',monospace;color:var(--tm)}
+.lbsc{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto}
+.lbsi{font-size:.68rem;color:var(--tm);display:flex;align-items:center;gap:3px}
+.kbd{display:inline-block;background:var(--bge);border:1px solid var(--br);border-radius:3px;padding:1px 5px;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--tm)}
+
+/* ── CHATS PAGE ──────────────────────── */
+#p-chats{flex-direction:row !important}
+.chat-list-panel{width:280px;flex-shrink:0;height:100%;border-right:1px solid var(--br);display:flex;flex-direction:column;overflow:hidden}
+.chat-list-header{padding:12px 16px;border-bottom:1px solid var(--br);flex-shrink:0}
+.chat-list-header h3{font-size:.9rem;font-weight:600;margin-bottom:8px}
+.chat-srch{background:var(--bge);border:1px solid var(--br);border-radius:50px;padding:7px 14px;color:var(--tp);font-family:'Outfit',sans-serif;font-size:.8rem;outline:none;width:100%;transition:all .2s}
+.chat-srch::placeholder{color:var(--tm)}
+.chat-srch:focus{border-color:rgba(255,252,0,.3)}
+.conv-list{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--td) transparent}
+.conv-list::-webkit-scrollbar{width:3px}
+.conv-list::-webkit-scrollbar-thumb{background:var(--td)}
+.conv-item{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--br);transition:background .12s}
+.conv-item:hover{background:var(--bgg)}
+.conv-item.active{background:var(--yd)}
+.conv-avatar{width:36px;height:36px;border-radius:50%;background:var(--bge);display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:600;color:var(--tp);flex-shrink:0;border:1px solid var(--br)}
+.conv-item.active .conv-avatar{background:rgba(255,252,0,.2);border-color:rgba(255,252,0,.4);color:var(--y)}
+.conv-name{font-size:.84rem;font-weight:500;color:var(--tp);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv-item.active .conv-name{color:var(--y)}
+.conv-badge{font-size:.65rem;color:var(--td);font-family:'DM Mono',monospace;white-space:nowrap}
+.conv-item.active .conv-badge{color:rgba(255,252,0,.6)}
+.conv-group-badge{font-size:.55rem;background:var(--bge);border-radius:4px;padding:1px 4px;color:var(--tm);margin-left:4px;vertical-align:middle}
+
+/* Chat thread */
+.chat-thread-panel{flex:1;height:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.chat-thread-header{padding:12px 18px;border-bottom:1px solid var(--br);display:flex;align-items:center;gap:12px;flex-shrink:0;background:rgba(10,10,11,.95);backdrop-filter:blur(20px)}
+.cth-avatar{width:34px;height:34px;border-radius:50%;background:var(--yd);border:1px solid rgba(255,252,0,.3);display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:var(--y);flex-shrink:0}
+.cth-name{font-size:.95rem;font-weight:600}
+.cth-sub{font-size:.72rem;color:var(--tm)}
+.thread-scroll{flex:1;overflow-y:auto;padding:16px 20px;scrollbar-width:thin;scrollbar-color:var(--td) transparent;display:flex;flex-direction:column;gap:8px}
+.thread-scroll::-webkit-scrollbar{width:3px}
+.thread-scroll::-webkit-scrollbar-thumb{background:var(--td);border-radius:4px}
+.msg-group{display:flex;flex-direction:column;gap:3px}
+.msg-group.sent{align-items:flex-end}
+.msg-group.recv{align-items:flex-start}
+.msg-sender{font-size:.68rem;color:var(--tm);margin-bottom:2px;padding:0 4px}
+.msg-bubble{max-width:72%;padding:8px 12px;border-radius:16px;font-size:.84rem;line-height:1.45;word-break:break-word}
+.msg-group.sent .msg-bubble{background:var(--y);color:#000;border-radius:16px 16px 4px 16px}
+.msg-group.recv .msg-bubble{background:var(--bge);color:var(--tp);border-bottom:1px solid var(--br);border-radius:16px 16px 16px 4px}
+.msg-meta{font-size:.62rem;color:var(--td);padding:0 6px;display:flex;align-items:center;gap:5px}
+.msg-type-tag{font-size:.6rem;background:var(--bge);border:1px solid var(--br);border-radius:4px;padding:1px 5px;color:var(--tm)}
+.msg-saved{background:var(--y);color:#845D00;border-radius:6px;padding:2px 7px;font-size:.6rem;font-weight:600}
+.date-divider{text-align:center;padding:8px 0;font-size:.7rem;color:var(--td);font-family:'DM Mono',monospace;position:relative}
+.date-divider::before{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:var(--br)}
+.date-divider span{background:var(--bg);padding:0 10px;position:relative}
+.no-conv-selected{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--tm)}
+.no-conv-icon{font-size:3.5rem;opacity:.25}
+.loading-msg{text-align:center;padding:20px;color:var(--tm);font-size:.85rem}
+
+/* ── SIMPLE DATA PAGES ───────────────── */
+.data-page-scroll{flex:1;overflow-y:auto;padding:20px 24px;scrollbar-width:thin;scrollbar-color:var(--td) transparent}
+.data-page-scroll::-webkit-scrollbar{width:3px}
+.data-page-scroll::-webkit-scrollbar-thumb{background:var(--td)}
+.info-card{background:var(--bgc);border:1px solid var(--br);border-radius:var(--r-lg);padding:20px;margin-bottom:14px}
+.info-card h3{font-size:.85rem;font-weight:600;color:var(--tm);letter-spacing:.06em;text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--br)}
+.kv-row{display:flex;gap:16px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);align-items:flex-start}
+.kv-row:last-child{border:none}
+.kv-key{font-size:.78rem;color:var(--tm);min-width:160px;flex-shrink:0;padding-top:1px}
+.kv-val{font-size:.82rem;color:var(--tp);font-family:'DM Mono',monospace;word-break:break-all;flex:1}
+.friends-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.friend-card{background:var(--bgc);border:1px solid var(--br);border-radius:var(--r-md);padding:14px;display:flex;align-items:center;gap:10px;transition:border-color .15s}
+.friend-card:hover{border-color:rgba(255,252,0,.25)}
+.friend-avatar{width:38px;height:38px;border-radius:50%;background:var(--bge);display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:600;color:var(--tp);flex-shrink:0}
+.friend-name{font-size:.82rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.friend-since{font-size:.68rem;color:var(--tm);font-family:'DM Mono',monospace;margin-top:2px}
+.snap-history-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.snap-history-table th{text-align:left;padding:8px 12px;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--tm);font-weight:600;border-bottom:1px solid var(--br)}
+.snap-history-table td{padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--tp)}
+.snap-history-table tr:hover td{background:var(--bgg)}
+.type-tag{display:inline-block;background:var(--bge);border:1px solid var(--br);border-radius:5px;padding:1px 7px;font-size:.65rem;color:var(--tm)}
+.type-tag.sent{border-color:rgba(91,141,238,.3);color:var(--blue)}
+.type-tag.recv{border-color:rgba(78,205,196,.3);color:var(--teal)}
+
+/* ── TOAST ───────────────────────────── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bge);border:1px solid var(--br);border-radius:50px;padding:10px 22px;font-size:.85rem;color:var(--tp);z-index:300;transition:transform .3s,opacity .3s;opacity:0;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+</style>
+</head>
+<body>
+
+<!-- ══════════ LANDING ══════════ -->
+<div id="landing">
+  <div class="logo-wrap">
+    <svg viewBox="0 0 40 40" fill="none"><path d="M20 4C11.16 4 4 11.16 4 20c0 4.56 1.88 8.68 4.9 11.64L7 34l6.18-.68A15.9 15.9 0 0020 36c8.84 0 16-7.16 16-16S28.84 4 20 4z" fill="#000"/><path d="M26.5 22.8c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.66.15-.2.3-.75.96-.92 1.16-.17.2-.34.22-.63.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.34.44-.51.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.6-.91-2.19-.24-.57-.49-.5-.67-.5-.17 0-.37-.02-.57-.02-.2 0-.52.07-.79.37-.27.3-1.03 1.01-1.03 2.46 0 1.45 1.06 2.86 1.2 3.06.15.2 2.07 3.17 5.02 4.44.7.3 1.25.48 1.67.61.7.22 1.34.19 1.85.12.56-.08 1.74-.71 1.98-1.4.25-.68.25-1.27.18-1.4-.07-.13-.27-.2-.56-.34z" fill="#FFFC00"/></svg>
+  </div>
+  <h1 class="lt">Snap Archive Viewer</h1>
+  <p class="ls">Browse your Snapchat memories, chats & more — completely offline.</p>
+  <div class="drop" id="dz">
+    <input type="file" id="fi" webkitdirectory multiple>
+    <span class="drop-icon">📁</span>
+    <div class="dl">Select Your Snapchat Data Folder</div>
+    <div class="dh">Click to browse<br>Select the folder containing json/, html/ folders</div>
+  </div>
+  <div id="flist"></div>
+  <button class="btn-go" id="goBtn" disabled>Open Archive</button>
+</div>
+
+<!-- ══════════ PROGRESS ══════════ -->
+<div id="prog">
+  <div class="logo-wrap" style="width:60px;height:60px;border-radius:18px;margin-bottom:20px">
+    <svg viewBox="0 0 40 40" fill="none"><path d="M20 4C11.16 4 4 11.16 4 20c0 4.56 1.88 8.68 4.9 11.64L7 34l6.18-.68A15.9 15.9 0 0020 36c8.84 0 16-7.16 16-16S28.84 4 20 4z" fill="#000"/><path d="M26.5 22.8c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.66.15-.2.3-.75.96-.92 1.16-.17.2-.34.22-.63.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.34.44-.51.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.6-.91-2.19-.24-.57-.49-.5-.67-.5-.17 0-.37-.02-.57-.02-.2 0-.52.07-.79.37-.27.3-1.03 1.01-1.03 2.46 0 1.45 1.06 2.86 1.2 3.06.15.2 2.07 3.17 5.02 4.44.7.3 1.25.48 1.67.61.7.22 1.34.19 1.85.12.56-.08 1.74-.71 1.98-1.4.25-.68.25-1.27.18-1.4-.07-.13-.27-.2-.56-.34z" fill="#FFFC00"/></svg>
+  </div>
+  <div class="pt">Building your archive…</div>
+  <div class="ps" id="plabel">Starting up…</div>
+  <div class="pb-wrap"><div class="pb-fill" id="pbar"></div></div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sb-logo"><div class="sb-dot"></div><span class="sb-title">Snap Archive</span></div>
+    <div class="sb-stats">
+      <div class="sb-stat"><span class="dot" style="background:var(--y)"></span><span id="sb-photos">— photos</span></div>
+      <div class="sb-stat"><span class="dot" style="background:var(--red)"></span><span id="sb-videos">— videos</span></div>
+      <div class="sb-stat"><span class="dot" style="background:var(--blue)"></span><span id="sb-convos">— conversations</span></div>
+    </div>
+    <nav>
+      <div class="nav-section">Media</div>
+      <div class="nav-item active" data-page="memories"><span class="ni">🖼</span>Memories<span class="nav-badge" id="nb-memories">0</span></div>
+      <div class="nav-section">Social</div>
+      <div class="nav-item" data-page="chats"><span class="ni">💬</span>Chats<span class="nav-badge" id="nb-chats">0</span></div>
+      <div class="nav-item" data-page="friends"><span class="ni">👥</span>Friends<span class="nav-badge" id="nb-friends">0</span></div>
+      <div class="nav-section">History</div>
+      <div class="nav-item" data-page="snaps"><span class="ni">👻</span>Snap History<span class="nav-badge" id="nb-snaps">0</span></div>
+      <div class="nav-item" data-page="search"><span class="ni">🔍</span>Search History<span class="nav-badge" id="nb-search">0</span></div>
+      <div class="nav-section">Account</div>
+      <div class="nav-item" data-page="profile"><span class="ni">👤</span>Profile</div>
+      <div class="nav-item" data-page="login"><span class="ni">🔐</span>Login History<span class="nav-badge" id="nb-login">0</span></div>
+    </nav>
+  </div>
+
+  <!-- Pages -->
+  <div class="main">
+
+    <!-- MEMORIES -->
+    <div class="page active" id="p-memories">
+      <div class="page-hdr">
+        <div class="page-hdr-left"><h2>Memories</h2><span class="count" id="mem-count">0 items</span></div>
+        <div class="hdr-actions">
+          <div class="srch-wrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="srch-inp" id="mem-search" placeholder="Search date, location…">
+          </div>
+        </div>
+      </div>
+      <div class="filter-bar" id="mem-filter-bar">
+        <div class="pill active" data-f="all">All</div>
+        <div class="pill" data-f="img">📷 Photos</div>
+        <div class="pill" data-f="vid">🎬 Videos</div>
+        <div class="pill" data-f="ov">✨ Has Overlay</div>
+      </div>
+      <div class="scroll-area" id="mem-scroll"><div id="gal"></div></div>
+    </div>
+
+    <!-- CHATS -->
+    <div class="page" id="p-chats">
+      <div class="chat-list-panel">
+        <div class="chat-list-header">
+          <h3>Conversations</h3>
+          <input class="chat-srch" id="conv-search" placeholder="Search chats…">
+        </div>
+        <div class="conv-list" id="conv-list"></div>
+      </div>
+      <div class="chat-thread-panel" id="chat-thread-panel">
+        <div class="no-conv-selected">
+          <div class="no-conv-icon">💬</div>
+          <div style="font-size:.95rem;font-weight:600;color:var(--td)">Select a conversation</div>
+          <div style="font-size:.82rem">Choose from the list to read your chat history</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FRIENDS -->
+    <div class="page" id="p-friends">
+      <div class="page-hdr"><div class="page-hdr-left"><h2>Friends</h2><span class="count" id="friends-count">0</span></div><div class="hdr-actions"><div class="srch-wrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="srch-inp" id="friends-search" placeholder="Search friends…"></div></div></div>
+      <div class="data-page-scroll"><div class="friends-grid" id="friends-grid"></div></div>
+    </div>
+
+    <!-- SNAPS -->
+    <div class="page" id="p-snaps">
+      <div class="page-hdr"><div class="page-hdr-left"><h2>Snap History</h2><span class="count" id="snaps-count">0</span></div><div class="hdr-actions"><div class="srch-wrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input class="srch-inp" id="snaps-search" placeholder="Search snaps…"></div></div></div>
+      <div class="data-page-scroll"><table class="snap-history-table"><thead><tr><th>Type</th><th>To/From</th><th>Media Type</th><th>Timestamp</th></tr></thead><tbody id="snaps-body"></tbody></table></div>
+    </div>
+
+    <!-- SEARCH HISTORY -->
+    <div class="page" id="p-search">
+      <div class="page-hdr"><div class="page-hdr-left"><h2>Search History</h2><span class="count" id="search-count">0</span></div></div>
+      <div class="data-page-scroll">
+        <div class="info-card"><h3>Search Terms</h3><div id="search-list"></div></div>
+      </div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="page" id="p-profile">
+      <div class="page-hdr"><div class="page-hdr-left"><h2>Profile</h2></div></div>
+      <div class="data-page-scroll"><div class="info-card"><h3>Account Info</h3><div id="profile-content"></div></div></div>
+    </div>
+
+    <!-- LOGIN -->
+    <div class="page" id="p-login">
+      <div class="page-hdr"><div class="page-hdr-left"><h2>Login History</h2><span class="count" id="login-count">0</span></div></div>
+      <div class="data-page-scroll"><table class="snap-history-table"><thead><tr><th>Date</th><th>IP</th><th>Country</th><th>Device</th></tr></thead><tbody id="login-body"></tbody></table></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lb">
+  <div class="lbi">
+    <button class="lbnav" id="lbprev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <div class="lbmw" id="lbmw"></div>
+    <div class="lbip">
+      <div><div class="lbd" id="lbd">—</div><div class="lbt" id="lbt">—</div></div>
+      <div class="lbtt" id="lbtt">📷 Image</div>
+      <div class="lbloc" id="lbloc" style="display:none"><div class="lblocl">📍 Location</div><div class="lblocc" id="lblocc"></div><div id="lblocml" style="margin-top:6px"></div></div>
+      <div class="lbot" id="lbot" style="display:none"><div><div class="otl">✨ Overlay</div><div class="ots">Stickers & text</div></div><div class="tsw on" id="tsw"></div></div>
+      <div class="lbsc">
+        <div class="lbsi"><span class="kbd">←</span><span class="kbd">→</span> nav</div>
+        <div class="lbsi"><span class="kbd">O</span> overlay</div>
+        <div class="lbsi"><span class="kbd">Esc</span> close</div>
+      </div>
+    </div>
+    <button class="lbc" id="lbc"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <button class="lbnav" id="lbnext" style="right:16px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div id="lbctr">1 / 1</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+const S = {
+  allFiles: [], folders: [],
+  memItems: [], memFiltered: [],
+  memFilter: 'all', memQ: '',
+  convos: [],
+  convoFiles: {},
+  chatJson: null,
+  chatMediaFiles: {},
+  friends: [], snaps: [], searchHistory: [],
+  profile: {}, loginHistory: [],
+  overlayOn: true, lbIdx: 0,
+  db: null, cached: false,
+};
+
+// ═══════════════════════════════════════════
+//  INDEXEDDB CACHE
+// ═══════════════════════════════════════════
+const DB_NAME = 'SnapArchiveCache', DB_VER = 1, STORE_NAME = 'archive';
+async function initDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains(STORE_NAME)){
+        db.createObjectStore(STORE_NAME, {keyPath:'id'});
+      }
+    };
+    req.onsuccess=e=>{S.db=e.target.result;res();};
+    req.onerror=e=>rej(e);
+  });
+}
+// Cache disabled - causes memory issues with large archives
+async function saveToCache(){
+  // Skipped - gallery takes too much memory
+  return;
+}
+async function loadFromCache(){
+  if(!S.db)return null;
+  return new Promise(res=>{
+    const tx=S.db.transaction(STORE_NAME,'readonly');
+    const req=tx.objectStore(STORE_NAME).get('archive');
+    req.onsuccess=e=>res(e.target.result);
+    req.onerror=e=>res(null);
+  });
+}
+async function clearCache(){
+  if(!S.db)return null;
+  return new Promise(res=>{
+    const tx=S.db.transaction(STORE_NAME,'readwrite');
+    tx.objectStore(STORE_NAME).delete('archive');
+    tx.oncomplete=()=>res();
+    tx.onerror=()=>res();
+  });
+}
+
+// ═══════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const readText = f => new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsText(f);});
+let toastT;
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),3000);}
+function setP(pct,lbl){$('pbar').style.width=pct+'%';$('plabel').textContent=lbl;}
+
+// ═══════════════════════════════════════════
+//  FILE LOADING
+// ═══════════════════════════════════════════
+function handleFiles(files){
+  if(!files||!files.length)return;
+  const arr=Array.from(files);
+  const root=(arr[0].webkitRelativePath||arr[0].name).split('/')[0];
+  if(S.folders.includes(root)){toast('Already loaded!');return;}
+  S.folders.push(root);
+  S.allFiles.push(...arr);
+  renderFolderList();
+  $('goBtn').disabled=false;
+}
+$('fi').addEventListener('change',e=>{
+  handleFiles(e.target.files);
+  e.target.value='';
+});
+const dz=$('dz');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');handleFiles(e.dataTransfer.files);});
+function renderFolderList(){
+  $('flist').innerHTML=S.folders.map(n=>`<div class="fi"><span>📁</span><span class="fn">${n}</span><span class="fc">${S.allFiles.filter(f=>(f.webkitRelativePath||f.name).startsWith(n)).length} files</span></div>`).join('');
+}
+$('goBtn').addEventListener('click', processAll);
+
+// ═══════════════════════════════════════════
+//  MAIN PROCESSING
+// ═══════════════════════════════════════════
+async function processAll(){
+  $('landing').classList.add('out');
+  await sleep(650); $('landing').style.display='none';
+  $('prog').classList.add('show');
+  setP(3,'Scanning files…'); await sleep(60);
+
+  // Bucket all files by type/path
+  const jsonFiles=[], htmlFiles={}, mediaFiles={}, chatMediaFiles={};
+  for(const f of S.allFiles){
+    const path=f.webkitRelativePath||f.name;
+    const parts=path.split('/');
+    const name=parts[parts.length-1];
+    const ext=name.split('.').pop().toLowerCase();
+    const dir=parts.length>1?parts[parts.length-2].toLowerCase():'';
+    const fullPath=path.toLowerCase();
+
+    if(ext==='json'){
+      if(name==='chat_history.json'){
+        jsonFiles.push({f,name,path,isChat:true});
+      }else{
+        jsonFiles.push({f,name,path});
+      }
+    }else if(ext==='html') htmlFiles[name]={f,path,parts};
+    else if(['jpg','jpeg','png','mp4','mov','webp'].includes(ext)){
+      if(parts.some(p=>p.toLowerCase()==='memories'||p.toLowerCase()==='memories_media'||p.toLowerCase()==='memories_export')){
+        // Handle -main and -overlay suffixes
+        let base=name.replace(/\.[^.]+$/,'').toLowerCase();
+        let type='main';
+        if(base.endsWith('-main')){
+          base=base.slice(0,-5);
+          type='main';
+        }else if(base.endsWith('-overlay')){
+          base=base.slice(0,-8);
+          type='overlay';
+        }
+        if(!mediaFiles[base]) mediaFiles[base]={};
+        if(['jpg','jpeg','webp'].includes(ext)&&type==='main') mediaFiles[base].img=f;
+        else if(['mp4','mov'].includes(ext)&&type==='main') mediaFiles[base].vid=f;
+        else if(ext==='png'&&type==='overlay') mediaFiles[base].ov=f;
+      }
+      else if(parts.some(p=>p.toLowerCase()==='chat_media')){
+        const base=name.replace(/\.[^.]+$/,'');
+        const isOverlay=name.toLowerCase().includes('overlay');
+        if(isOverlay){
+          if(!chatMediaFiles[base]) chatMediaFiles[base]={};
+          chatMediaFiles[base].overlay=f;
+        }else if(['jpg','jpeg','webp'].includes(ext)){
+          if(!chatMediaFiles[base]) chatMediaFiles[base]={};
+          chatMediaFiles[base].img=f;
+        }else if(['mp4','mov'].includes(ext)){
+          if(!chatMediaFiles[base]) chatMediaFiles[base]={};
+          chatMediaFiles[base].vid=f;
+        }
+      }
+    }
+  }
+  S.chatMediaFiles=chatMediaFiles;
+
+  setP(12,'Reading JSON data…'); await sleep(40);
+
+  // Parse all JSONs
+  const metaMap={};
+  for(const {f,name,isChat} of jsonFiles){
+    try{
+      const txt=await readText(f);
+      const json=JSON.parse(txt);
+      if(isChat){
+        S.chatJson=json; // Store raw chat JSON
+        const convos=Object.keys(json).filter(k=>Array.isArray(json[k])&&json[k].length>0);
+        S.convos=convos.map(name=>({
+          name,
+          isGroup:name.length>20||name.includes('-')||name.includes('_'),
+          messages:json[name]
+        }));
+        continue;
+      }
+      if(name==='memories_history.json'){
+        const arr=Array.isArray(json)?json:(json['Saved Media']||json['memories']||json);
+        if(Array.isArray(arr)){for(const m of arr){const d=m['Date']||m['date']||'';if(d){metaMap[normKey(d)]=m;metaMap[d]=m;}}}
+      } else if(name==='snap_history.json'){
+        const arr=Array.isArray(json)?json:(json['Received Snap History']?[...(json['Received Snap History']||[]),...(json['Sent Snap History']||[])]:json);
+        if(Array.isArray(arr)) S.snaps=arr;
+        else if(json['Received Snap History']||json['Sent Snap History']){
+          S.snaps=[...(json['Received Snap History']||[]).map(s=>({...s,_dir:'recv'})), ...(json['Sent Snap History']||[]).map(s=>({...s,_dir:'sent'}))];
+        }
+      } else if(name==='friends.json'){
+        const arr=Array.isArray(json)?json:(json['Friends']||json['friends']||[]);
+        if(Array.isArray(arr)) S.friends=arr;
+      } else if(name==='user_profile.json'){
+        S.profile=json['User Information']||json;
+      } else if(name==='account.json'||name==='account_history.json'){
+        if(!S.profile || Object.keys(S.profile).length===0) S.profile=json['Account Information']||json['Basic Information']||json;
+      } else if(name==='login_history.json'){
+        const arr=Array.isArray(json)?json:(json['Login History']||json['Account Activity']||json);
+        if(Array.isArray(arr)) S.loginHistory=arr;
+      } else if(name==='search_history.json'){
+        const arr=Array.isArray(json)?json:(json['Search History']||json);
+        if(Array.isArray(arr)) S.searchHistory=arr;
+        else if(json['Search History']) S.searchHistory=json['Search History'];
+      }
+    }catch(e){}
+  }
+
+  setP(25,'Parsing chat history…'); await sleep(40);
+
+  // Convos already loaded from chat_history.json above
+  // Sort convos by most recent message
+  S.convos.sort((a,b)=>{
+    const ad=a.messages[0]?.Created||a.messages[0]?.['Created']||'';
+    const bd=b.messages[0]?.Created||b.messages[0]?.['Created']||'';
+    if(ad>bd)return -1;if(ad<bd)return 1;return 0;
+  });
+
+  setP(42,'Processing memories…'); await sleep(40);
+
+  // Build memory items
+  const items=[]; const bases=Object.keys(mediaFiles);
+  for(let i=0;i<bases.length;i++){
+    if(i%300===0){setP(42+Math.round(i/bases.length*38),`Processing ${i}/${bases.length} memories…`);await sleep(0);}
+    const b=bases[i];const mf=mediaFiles[b];
+    if(!mf.img&&!mf.vid) continue;
+    const isVid=!!mf.vid;
+    const meta=findMeta(b,metaMap);
+    const date=parseDate(b,meta);
+    items.push({id:b,isVid,base:mf.vid||mf.img,ov:mf.ov||null,hasOv:!!mf.ov,date,meta,burl:null,ourl:null});
+  }
+  items.sort((a,b)=>{if(!a.date&&!b.date)return 0;if(!a.date)return 1;if(!b.date)return-1;return b.date-a.date;});
+  S.memItems=items; S.memFiltered=[...items];
+
+  setP(85,'Finalizing…'); await sleep(60);
+
+  // Update sidebar stats
+  const ph=items.filter(i=>!i.isVid).length;
+  const vi=items.filter(i=>i.isVid).length;
+  $('sb-photos').textContent=`${ph.toLocaleString()} photos`;
+  $('sb-videos').textContent=`${vi.toLocaleString()} videos`;
+  $('sb-convos').textContent=`${S.convos.length} conversations`;
+  $('nb-memories').textContent=items.length.toLocaleString();
+  $('nb-chats').textContent=S.convos.length;
+  $('nb-friends').textContent=S.friends.length;
+  $('nb-snaps').textContent=S.snaps.length.toLocaleString();
+  $('nb-search').textContent=S.searchHistory.length.toLocaleString();
+  $('nb-login').textContent=S.loginHistory.length.toLocaleString();
+  buildYearPills(items);
+  renderConvList();
+  renderFriends();
+  renderSnaps();
+  renderSearch();
+  renderProfile();
+  renderLogin();
+
+  setP(100,'Saving to cache…');
+  await saveToCache();
+  await sleep(200);
+  setP(100,'Done!'); await sleep(350);
+  $('prog').classList.remove('show');
+  $('app').classList.add('show');
+  renderGallery();
+  setupDragScroll();
+  toast('Data cached for next time!');
+}
+
+// ═══════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════
+function normKey(d){return d.replace(' UTC','').replace(/:/g,'-').trim();}
+function findMeta(base,meta){
+  if(meta[base])return meta[base];
+  const n=base.replace(' UTC','').trim();
+  for(const k of Object.keys(meta)){if(k===n||k.startsWith(n)||n.startsWith(k))return meta[k];}
+  return null;
+}
+function parseDate(base,m){
+  if(m&&m['Date']){const d=new Date(m['Date'].replace(' UTC',' GMT'));if(!isNaN(d))return d;}
+  const r=base.match(/(\d{4})-(\d{2})-(\d{2})[\s_T](\d{2})[-:](\d{2})[-:](\d{2})/);
+  if(r)return new Date(`${r[1]}-${r[2]}-${r[3]}T${r[4]}:${r[5]}:${r[6]}Z`);
+  const r2=base.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(r2)return new Date(`${r2[1]}-${r2[2]}-${r2[3]}`);
+  return null;
+}
+function fmtDateShort(d){return d?d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'?';}
+function initials(name){return name.split(/[\s_.-]/).filter(Boolean).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';}
+
+// ═══════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click',()=>{
+    const pg=item.dataset.page;
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    item.classList.add('active');
+    $(`p-${pg}`).classList.add('active');
+  });
+});
+
+// ═══════════════════════════════════════════
+//  MEMORIES - Progressive loading
+// ═══════════════════════════════════════════
+const VIRT = {
+  pageSize: 25,
+  currentPage: 0,
+  groups: [],
+  loading: false
+};
+
+let scrollTimeout;
+function setupScrollLoader(){
+  const scroll=$('mem-scroll');
+  scroll.onscroll=function(){
+    clearTimeout(scrollTimeout);
+    scrollTimeout=setTimeout(()=>{
+      if(VIRT.loading)return;
+      const atBottom=scroll.scrollTop+scroll.clientHeight>=scroll.scrollHeight-500;
+      if(atBottom&&VIRT.currentPage<VIRT.groups.length-1){
+        VIRT.loading=true;
+        VIRT.currentPage++;
+        loadMoreGroups();
+      }
+    },100);
+  };
+}
+
+function loadMoreGroups(){
+  const start=VIRT.currentPage*VIRT.pageSize;
+  const end=Math.min(start+VIRT.pageSize,VIRT.groups.length);
+  const gal=$('gal');
+  const frag=document.createDocumentFragment();
+  
+  for(let gi=start;gi<end;gi++){
+    const g=VIRT.groups[gi];
+    if(g.type==='year'){
+      const d=document.createElement('div');d.className='ydiv';d.textContent=g.value;frag.appendChild(d);
+    }else{
+      const mg=document.createElement('div');mg.className='month-grp';
+      const label=document.createElement('div');label.className='month-lbl';
+      const mo=g.yr?new Date(g.yr,g.mo-1,1).toLocaleString('default',{month:'long'}):'Undated';
+      label.innerHTML=`${mo} ${g.yr||''}<span class="month-cnt">${g.items.length}</span>`;
+      mg.appendChild(label);
+      const grid=document.createElement('div');grid.className='mem-grid';
+      // Don't create blob URLs here - lazyLoad will handle it
+      g.items.forEach((item,idx)=>{
+        const card=document.createElement('div');card.className='card';
+        card.innerHTML=cardHTML(item);
+        grid.appendChild(card);
+      });
+      mg.appendChild(grid);frag.appendChild(mg);
+    }
+  }
+  
+  gal.appendChild(frag);
+  VIRT.loading=false;
+  
+  // Setup lazy loading for new cards and setupCardEvents
+  $('gal').querySelectorAll('.card').forEach(c=>{
+    const idx=parseInt(c.dataset.i);
+    if(isNaN(idx))return;
+    c.onclick=()=>openLB(idx);
+  });
+  
+  // Run lazy load for new cards
+  setTimeout(()=>lazyLoad(),10);
+}
+
+// Memory cleanup for gallery
+function cleanupMemURLs(){
+  const currentIdx=S.lbIdx;
+  if(currentIdx<0)return;
+  
+  // Clean URLs for items far from viewport in filtered list
+  S.memFiltered.forEach((item,idx)=>{
+    if(item && Math.abs(idx-currentIdx)>5){
+      if(item.burl){URL.revokeObjectURL(item.burl);item.burl=null;}
+      if(item.ourl){URL.revokeObjectURL(item.ourl);item.ourl=null;}
+    }
+  });
+}
+
+function buildYearPills(items){
+  const years=new Set(items.filter(i=>i.date).map(i=>i.date.getFullYear()));
+  const fb=$('mem-filter-bar');
+  fb.querySelectorAll('.year-pill').forEach(p=>p.remove());
+  [...years].sort((a,b)=>b-a).forEach(y=>{
+    const p=document.createElement('div');p.className='pill year-pill';p.dataset.f=`y${y}`;p.textContent=y;fb.appendChild(p);
+  });
+}
+$('mem-filter-bar').addEventListener('click',e=>{
+  const p=e.target.closest('.pill');if(!p)return;
+  document.querySelectorAll('#mem-filter-bar .pill').forEach(x=>x.classList.remove('active'));
+  p.classList.add('active');S.memFilter=p.dataset.f;applyMemFilter();
+});
+let memSearchTimeout;
+$('mem-search').addEventListener('input',e=>{
+  clearTimeout(memSearchTimeout);
+  memSearchTimeout=setTimeout(()=>{
+    S.memQ=e.target.value.toLowerCase().trim();
+    applyMemFilter();
+  },300);
+});
+function applyMemFilter(){
+  let items=S.memItems;
+  if(S.memFilter==='img')items=items.filter(i=>!i.isVid);
+  else if(S.memFilter==='vid')items=items.filter(i=>i.isVid);
+  else if(S.memFilter==='ov')items=items.filter(i=>i.hasOv);
+  else if(S.memFilter.startsWith('y')){const yr=parseInt(S.memFilter.slice(1));items=items.filter(i=>i.date&&i.date.getFullYear()===yr);}
+  if(S.memQ)items=items.filter(i=>{
+    const ds=i.date?i.date.toISOString():'';
+    const loc=i.meta?(i.meta['Location']||''):'';
+    return ds.includes(S.memQ)||loc.toLowerCase().includes(S.memQ)||i.id.toLowerCase().includes(S.memQ);
+  });
+  S.memFiltered=items;
+  $('mem-scroll').scrollTo(0,0);
+  renderGallery();
+}
+function renderGallery(){
+  const items=S.memFiltered;
+  $('mem-count').textContent=`${items.length.toLocaleString()} items`;
+  if(!items.length){$('gal').innerHTML='<div class="empty-state"><div class="empty-icon">📭</div><div style="font-size:1rem;font-weight:600;color:var(--td)">No memories found</div><div style="font-size:.82rem">Try a different filter</div></div>';return;}
+  
+  const grps={};const ung=[];
+  items.forEach((item,i)=>{item._i=i;
+    if(item.date){const k=`${item.date.getFullYear()}-${String(item.date.getMonth()+1).padStart(2,'0')}`;(grps[k]=grps[k]||[]).push(item);}
+    else ung.push(item);
+  });
+  
+  const keys=Object.keys(grps).sort((a,b)=>b.localeCompare(a));
+  VIRT.groups=[];
+  let py=null;
+  for(const k of keys){
+    const[yr,mo]=k.split('-');const y=parseInt(yr);
+    if(py!==null&&py!==y)VIRT.groups.push({type:'year',value:py});
+    py=y;
+    VIRT.groups.push({type:'month',key:k,yr,mo,items:grps[k]});
+  }
+  if(ung.length)VIRT.groups.push({type:'month',key:'undated',yr:null,mo:null,items:ung});
+  
+  VIRT.currentPage=0;
+  $('gal').innerHTML='';
+  loadMoreGroups();
+  setupScrollLoader();
+  setupCardEvents();
+}
+
+function setupCardEvents(){
+  $('gal').querySelectorAll('.card').forEach(c=>{
+    c.removeEventListener('click',cardClickHandler);
+    c.addEventListener('click',cardClickHandler);
+  });
+  $('gal').querySelectorAll('.obadge').forEach(b=>{
+    b.removeEventListener('click',overlayClickHandler);
+    b.addEventListener('click',overlayClickHandler);
+  });
+}
+
+function cardClickHandler(e){
+  if(e.target.closest('.obadge'))return;
+  openLB(parseInt(e.currentTarget.dataset.i));
+}
+
+function overlayClickHandler(e){
+  e.stopPropagation();
+  const oi=e.currentTarget.closest('.card').querySelector('.oi');
+  if(oi){oi.classList.toggle('off');e.currentTarget.textContent=oi.classList.contains('off')?'🫥':'✨';}
+}
+function cardHTML(item){
+  const ds=item.date?fmtDateShort(item.date):'';
+  return `<div class="card" data-i="${item._i}">
+    ${item.isVid?`<video class="bi" preload="none" muted playsinline></video>`:`<img class="bi" alt="">`}
+    ${item.hasOv?`<img class="oi" alt="">`:''}
+    <div class="tbadge ${item.isVid?'v':''}">${item.isVid?'▶':'📷'}</div>
+    ${item.hasOv?`<div class="obadge">✨</div>`:''}
+    ${ds?`<div class="dbadge">${ds}</div>`:''}
+    ${item.isVid?`<div class="play-icon"><svg width="28" height="28" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="rgba(0,0,0,.5)"/><polygon points="13,10 13,22 23,16" fill="white"/></svg></div>`:''}
+  </div>`;
+}
+function lazyLoad(){
+  const obs=new IntersectionObserver(entries=>{
+    for(const e of entries){
+      if(!e.isIntersecting)continue;
+      const c=e.target;const idx=parseInt(c.dataset.i);const item=S.memFiltered[idx];if(!item)continue;
+      if(!item.burl&&item.base)item.burl=URL.createObjectURL(item.base);
+      if(item.hasOv&&!item.ourl&&item.ov)item.ourl=URL.createObjectURL(item.ov);
+      const bi=c.querySelector('.bi');
+      if(bi&&item.burl&&!bi.src){if(bi.tagName==='VIDEO'){bi.src=item.burl;bi.load();}else bi.src=item.burl;}
+      const oi=c.querySelector('.oi');if(oi&&item.ourl&&!oi.src)oi.src=item.ourl;
+      obs.unobserve(c);
+    }
+  },{rootMargin:'280px'});
+  $('gal').querySelectorAll('.card').forEach(c=>obs.observe(c));
+}
+function setupDragScroll(){
+  const el=$('mem-scroll');let down=false,sy,st;
+  el.addEventListener('mousedown',e=>{if(e.target.closest('.card'))return;down=true;sy=e.pageY-el.offsetTop;st=el.scrollTop;el.style.cursor='grabbing';});
+  document.addEventListener('mouseup',()=>{down=false;el.style.cursor='';});
+  el.addEventListener('mousemove',e=>{if(!down)return;e.preventDefault();el.scrollTop=st-(e.pageY-el.offsetTop-sy)*1.5;});
+}
+
+// ═══════════════════════════════════════════
+//  LIGHTBOX
+// ═══════════════════════════════════════════
+function openLB(idx){lastLbIdx=S.lbIdx;S.lbIdx=idx;S.overlayOn=true;$('lb').classList.add('open');renderLB();}
+let lastLbIdx=-1;
+function closeLB(){
+  const prevItem=S.memFiltered[lastLbIdx];
+  if(prevItem){
+    // Revoke URLs for items far from current
+    S.memFiltered.forEach((item,idx)=>{
+      if(item&&Math.abs(idx-lastLbIdx)>3){
+        if(item.burl){URL.revokeObjectURL(item.burl);item.burl=null;}
+        if(item.ourl){URL.revokeObjectURL(item.ourl);item.ourl=null;}
+      }
+    });
+  }
+  $('lb').classList.remove('open');
+  $('lbmw').innerHTML='';
+}
+function renderLB(){
+  const item=S.memFiltered[S.lbIdx];if(!item)return;
+  if(!item.burl&&item.base)item.burl=URL.createObjectURL(item.base);
+  if(item.hasOv&&!item.ourl&&item.ov)item.ourl=URL.createObjectURL(item.ov);
+  $('lbctr').textContent=`${S.lbIdx+1} / ${S.memFiltered.length}`;
+  let html=item.isVid?`<video class="lbb" src="${item.burl}" controls autoplay muted loop playsinline></video>`:`<img class="lbb" src="${item.burl}" alt="">`;
+  if(item.hasOv&&item.ourl)html+=`<img class="lbo ${S.overlayOn?'':'off'}" src="${item.ourl}" alt="">`;
+  $('lbmw').innerHTML=html;
+  $('lbd').textContent=item.date?item.date.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'Unknown date';
+  $('lbt').textContent=item.date?item.date.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' UTC':'';
+  $('lbtt').textContent=item.isVid?'🎬 Video':'📷 Image';
+  const ll=$('lbloc');
+  if(item.meta&&item.meta['Location']){const loc=item.meta['Location'].replace('Latitude, Longitude: ','');$('lblocc').textContent=loc;$('lblocml').innerHTML=`<a href="https://maps.google.com/?q=${encodeURIComponent(loc)}" target="_blank" style="font-size:.72rem;color:var(--y);text-decoration:none">Open in Maps ↗</a>`;ll.style.display='block';}
+  else ll.style.display='none';
+  const lb=$('lbot');const tsw=$('tsw');
+  if(item.hasOv){lb.style.display='flex';tsw.className=`tsw ${S.overlayOn?'on':''}`;lb.classList.toggle('on',S.overlayOn);}else lb.style.display='none';
+}
+function toggleOv(){S.overlayOn=!S.overlayOn;const o=$('lbmw').querySelector('.lbo');if(o)o.classList.toggle('off',!S.overlayOn);const tsw=$('tsw');if(tsw)tsw.className=`tsw ${S.overlayOn?'on':''}`;$('lbot').classList.toggle('on',S.overlayOn);}
+function navLB(d){
+  const n=S.lbIdx+d;
+  if(n<0||n>=S.memFiltered.length)return;
+  lastLbIdx=S.lbIdx;
+  S.lbIdx=n;
+  // Cleanup old URLs periodically
+  if(S.lbIdx%10===0)cleanupMemURLs();
+  renderLB();
+}
+$('lbc').addEventListener('click',closeLB);
+$('lbprev').addEventListener('click',()=>navLB(-1));
+$('lbnext').addEventListener('click',()=>navLB(1));
+$('lbot').addEventListener('click',toggleOv);
+$('lb').addEventListener('click',e=>{if(e.target===$('lb'))closeLB();});
+document.addEventListener('keydown',e=>{
+  if(!$('lb').classList.contains('open'))return;
+  if(e.key==='ArrowLeft')navLB(-1);if(e.key==='ArrowRight')navLB(1);
+  if(e.key==='Escape')closeLB();if(e.key.toLowerCase()==='o')toggleOv();
+});
+let lbsx=0;
+$('lb').addEventListener('touchstart',e=>{lbsx=e.touches[0].clientX;},{passive:true});
+$('lb').addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-lbsx;if(Math.abs(dx)>50)navLB(dx<0?1:-1);});
+
+// ═══════════════════════════════════════════
+//  CHATS
+// ═══════════════════════════════════════════
+function renderConvList(){
+  const el=$('conv-list');
+  el.innerHTML=S.convos.map((c,i)=>`
+    <div class="conv-item" data-i="${i}" data-name="${c.name.toLowerCase()}">
+      <div class="conv-avatar">${initials(c.name)}</div>
+      <div style="flex:1;overflow:hidden">
+        <div class="conv-name">${c.name}${c.isGroup?'<span class="conv-group-badge">group</span>':''}</div>
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('.conv-item').forEach(item=>{
+    item.addEventListener('click',()=>{
+      el.querySelectorAll('.conv-item').forEach(x=>x.classList.remove('active'));
+      item.classList.add('active');
+      loadConvo(parseInt(item.dataset.i));
+    });
+  });
+}
+$('conv-search').addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase().trim();
+  $('conv-list').querySelectorAll('.conv-item').forEach(item=>{
+    item.style.display=(!q||item.dataset.name.includes(q))?'':'none';
+  });
+});
+
+async function loadConvo(idx){
+  const convo=S.convos[idx];
+  const panel=$('chat-thread-panel');
+  const msgCount=convo.messages.length;
+  panel.innerHTML=`<div class="chat-thread-header"><div class="cth-avatar">${initials(convo.name)}</div><div><div class="cth-name">${convo.name}</div><div class="cth-sub">${msgCount.toLocaleString()} messages</div></div></div><div class="thread-scroll" id="chat-msg-scroll"></div>`;
+
+  const scrollEl=panel.querySelector('.thread-scroll');
+  scrollEl.innerHTML=renderMessages(convo.messages)||'<div class="loading-msg" style="color:var(--td)">No saved messages in this conversation.</div>';
+  scrollEl.scrollTop=scrollEl.scrollHeight;
+  
+  // Set up lazy loading for chat media in view
+  setupChatMediaLoad(scrollEl);
+}
+
+function renderMessages(msgs){
+  if(!msgs||!msgs.length)return '';
+  let html='';let lastDate='';let lastSender='';
+  
+  // Find my username for determining sent vs received
+  const myName=S.profile?.Username||S.profile?.username||'';
+  
+  for(const msg of msgs){
+    const sender=msg['From']||msg['From']||msg.sender||'';
+    const text=msg['Content']||msg.content||msg.text||msg.message||'';
+    const created=msg['Created']||msg.created||msg['Created(microseconds)']||'';
+    const mediaType=msg['Media Type']||msg['media type']||msg.type||'';
+    const isSaved=msg['IsSaved']||msg.isSaved||false;
+    const mediaIds=msg['Media IDs']||msg['media ids']||'';
+    
+    const isSent=msg['IsSender']===true||msg['IsSender']===true||msg.IsSender===true;
+    const dir=isSent?'sent':'recv';
+    
+    // Date divider
+    if(created){
+      const d=new Date(created.replace(' UTC','Z'));
+      const dateStr=!isNaN(d)?d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}):String(created).split(' ')[0];
+      if(dateStr!==lastDate){html+=`<div class="date-divider"><span>${dateStr}</span></div>`;lastDate=dateStr;}
+    }
+    
+    const newGroup=sender!==lastSender;lastSender=sender;
+
+    let timeStr='';
+    if(created){
+      const d=new Date(created.replace(' UTC','Z'));
+      timeStr=!isNaN(d)?d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}):String(created).substring(11,16);
+    }
+
+    let textContent;
+    if(text){
+      textContent=escHtml(text);
+      // Check for media attachments
+      if(mediaIds&&mediaIds.trim()){
+        const mediaIdsList=mediaIds.split('|').map(m=>m.trim()).filter(Boolean);
+        if(mediaIdsList.length>0){
+          textContent+=`<div class="chat-media-attachments" style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">`;
+          for(const mid of mediaIdsList.slice(0,3)){
+            // Try exact match first, then partial match
+            let cmf=S.chatMediaFiles[mid];
+            if(!cmf){
+              // Try matching by ID prefix in filename
+              const idPart=mid.includes('b~')?mid.split('b~')[1]:mid.split('|')[0];
+              if(idPart){
+                for(const k of Object.keys(S.chatMediaFiles)){
+                  if(k.includes(idPart.substring(0,20))){
+                    cmf=S.chatMediaFiles[k];
+                    break;
+                  }
+                }
+              }
+            }
+            if(cmf){
+              const isVid=!!cmf.vid;
+              const url=URL.createObjectURL(cmf.img||cmf.vid);
+              textContent+=`<div class="chat-media-item" data-mid="${mid}" style="width:60px;height:80px;border-radius:6px;overflow:hidden;background:var(--bge);cursor:pointer">
+                ${isVid?`<video src="${url}" muted style="width:100%;height:100%;object-fit:cover">`:`<img src="${url}" style="width:100%;height:100%;object-fit:cover">`}
+              </div>`;
+            }
+          }
+          textContent+=`</div>`;
+        }
+      }
+    }else if(mediaType==='IMAGE'||mediaType==='VIDEO'){
+      textContent='<span style="opacity:.5;font-style:italic">📎 Media</span>';
+    }else if(mediaType==='SNAP'){
+      textContent='<span style="opacity:.5;font-style:italic">👻 Snap</span>';
+    }else if(mediaType==='STATUS'){
+      textContent='<span style="opacity:.5;font-style:italic">✨ Status</span>';
+    }else{
+      textContent='<span style="opacity:.5;font-style:italic">Snap (no preview)</span>';
+    }
+    
+    const typeTag=mediaType&&mediaType!=='TEXT'?`<span class="msg-type-tag">${mediaType}</span>`:'';
+    const savedTag=isSaved?`<span class="msg-saved">SAVED</span>`:'';
+
+    html+=`<div class="msg-group ${dir}">
+      ${newGroup&&!isSent&&sender?`<div class="msg-sender">${escHtml(sender)}</div>`:''}
+      <div class="msg-bubble">${textContent}</div>
+      <div class="msg-meta">${timeStr}${typeTag}${savedTag}</div>
+    </div>`;
+  }
+  return html;
+}
+
+function setupChatMediaLoad(container){
+  // Lazy load chat media when visible
+  const items=container.querySelectorAll('.chat-media-item');
+  if(!items.length)return;
+  
+  const obs=new IntersectionObserver(entries=>{
+    for(const e of entries){
+      if(!e.isIntersecting)continue;
+      const item=e.target;
+      const mid=item.dataset.mid;
+      if(mid){
+        // Preload media if not already loaded
+        const cmf=S.chatMediaFiles[mid];
+        if(cmf&&!cmf.loaded){
+          cmf.loaded=true;
+          // URLs already created in renderMessages
+        }
+      }
+      obs.unobserve(item);
+    }
+  },{rootMargin:'200px'});
+  
+  items.forEach(item=>obs.observe(item));
+}
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ═══════════════════════════════════════════
+//  FRIENDS
+// ═══════════════════════════════════════════
+function renderFriends(){
+  $('friends-count').textContent=S.friends.length;
+  $('friends-grid').innerHTML=S.friends.map(f=>{
+    const name=f['Username']||f['username']||f['Display Name']||f['name']||JSON.stringify(f).slice(0,30);
+    const since=f['Friend Since']||f['Added Date']||f['since']||'';
+    return `<div class="friend-card"><div class="friend-avatar">${initials(name)}</div><div><div class="friend-name">${escHtml(name)}</div>${since?`<div class="friend-since">${since}</div>`:''}</div></div>`;
+  }).join('');
+  $('friends-search').addEventListener('input',e=>{
+    const q=e.target.value.toLowerCase();
+    $('friends-grid').querySelectorAll('.friend-card').forEach(c=>{
+      c.style.display=c.textContent.toLowerCase().includes(q)?'':'none';
+    });
+  });
+}
+
+// ═══════════════════════════════════════════
+//  SNAPS
+// ═══════════════════════════════════════════
+function renderSnaps(){
+  $('snaps-count').textContent=S.snaps.length.toLocaleString();
+  const tbody=$('snaps-body');
+  function rowsHTML(snaps){
+    return snaps.map(s=>{
+      const dir=s['_dir']||s['Direction']||(s['Sender']?'recv':'sent');
+      const to=s['Recipient']||s['Sender']||s['Username']||'—';
+      const mt=s['Media Type']||s['Type']||'—';
+      const ts=s['Created']||s['Timestamp']||s['Date']||'—';
+      return `<tr><td><span class="type-tag ${dir}">${dir==='sent'?'▲ Sent':'▼ Recv'}</span></td><td>${escHtml(to)}</td><td>${escHtml(mt)}</td><td style="font-family:'DM Mono',monospace;font-size:.75rem">${ts}</td></tr>`;
+    }).join('');
+  }
+  tbody.innerHTML=rowsHTML(S.snaps);
+  $('snaps-search').addEventListener('input',e=>{
+    const q=e.target.value.toLowerCase();
+    tbody.querySelectorAll('tr').forEach(r=>{r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});
+  });
+}
+
+// ═══════════════════════════════════════════
+//  SEARCH HISTORY
+// ═══════════════════════════════════════════
+function renderSearch(){
+  $('search-count').textContent=S.searchHistory.length.toLocaleString();
+  $('search-list').innerHTML=S.searchHistory.map(s=>{
+    const term=s['Search Term']||s['term']||s['Query']||JSON.stringify(s);
+    const ts=s['Timestamp']||s['Date']||'';
+    return `<div class="kv-row"><div class="kv-val">${escHtml(term)}</div>${ts?`<div class="kv-key" style="min-width:120px;text-align:right">${ts}</div>`:''}</div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  PROFILE
+// ═══════════════════════════════════════════
+function renderProfile(){
+  const p=S.profile;
+  if(!p||!Object.keys(p).length){$('profile-content').innerHTML='<div style="color:var(--td);font-size:.85rem">No profile data found.</div>';return;}
+  $('profile-content').innerHTML=Object.entries(p).map(([k,v])=>{
+    const val=typeof v==='object'?JSON.stringify(v):String(v);
+    return `<div class="kv-row"><div class="kv-key">${escHtml(k)}</div><div class="kv-val">${escHtml(val)}</div></div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  LOGIN HISTORY
+// ═══════════════════════════════════════════
+function renderLogin(){
+  $('login-count').textContent=S.loginHistory.length.toLocaleString();
+  $('login-body').innerHTML=S.loginHistory.map(l=>{
+    const date=l['Created At']||l['Date']||l['Timestamp']||'—';
+    const ip=l['IP']||l['IP Address']||'—';
+    const country=l['Country']||l['Location']||'—';
+    const device=l['Device Type']||l['Device']||l['User Agent']||'—';
+    return `<tr><td style="font-family:'DM Mono',monospace;font-size:.75rem">${date}</td><td style="font-family:'DM Mono',monospace;font-size:.75rem">${ip}</td><td>${country}</td><td style="font-size:.75rem;color:var(--tm)">${device.slice(0,60)}</td></tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+(function init(){
+  $('goBtn').textContent='Open Archive';
+})();
+async function showApp(){
+  $('landing').classList.add('out');
+  await sleep(650); $('landing').style.display='none';
+  $('app').classList.add('show');
+  
+  const ph=S.memItems.filter(i=>!i.isVid).length;
+  const vi=S.memItems.filter(i=>i.isVid).length;
+  $('sb-photos').textContent=`${ph.toLocaleString()} photos`;
+  $('sb-videos').textContent=`${vi.toLocaleString()} videos`;
+  $('sb-convos').textContent=`${S.convos.length} conversations`;
+  $('nb-memories').textContent=S.memItems.length.toLocaleString();
+  $('nb-chats').textContent=S.convos.length;
+  $('nb-friends').textContent=S.friends.length;
+  $('nb-snaps').textContent=S.snaps.length.toLocaleString();
+  $('nb-search').textContent=S.searchHistory.length.toLocaleString();
+  $('nb-login').textContent=S.loginHistory.length.toLocaleString();
+  
+  renderConvList();
+  renderFriends();
+  renderSnaps();
+  renderSearch();
+  renderProfile();
+  renderLogin();
+  renderGallery();
+  setupDragScroll();
+  toast('Loaded from cache!');
+}
+</script>
+</body>
+</html>
