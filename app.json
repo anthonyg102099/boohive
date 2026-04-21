@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Snap Archive Viewer",
+    "slug": "boohive",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./favicon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0a0a0b",
+      "resizeMode": "contain",
+      "image": "./favicon.png"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "web": {
+      "bundler": "metro",
+      "favicon": "./favicon.png"
+    }
+  }
+}
